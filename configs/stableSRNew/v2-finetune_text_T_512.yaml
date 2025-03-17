@@ -20,6 +20,7 @@ model:
     use_ema: False
     # for training only
     # ckpt_path: /mnt/lustre/jywang/code/stable_diffmodels/v2-1_512-ema-pruned.ckpt
+    ckpt_path: /kaggle/input/ckpt-file/v2-1_512-ema-pruned.ckpt
     unfrozen_diff: False
     random_size: False
     time_replace: 1000
@@ -53,6 +54,7 @@ model:
       params:
         # for training only
         # ckpt_path: /mnt/lustre/jywang/code/stable_diffmodels/v2-1_512-ema-pruned.ckpt
+        ckpt_path: /kaggle/input/ckpt-file/v2-1_512-ema-pruned.ckpt
         embed_dim: 4
         monitor: val/rec_loss
         ddconfig:
