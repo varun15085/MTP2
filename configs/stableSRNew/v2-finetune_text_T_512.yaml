@@ -135,8 +135,10 @@ data:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
         queue_size: 180
-        gt_path: ['/mnt/lustre/share/jywang/dataset/DIV8K/train_HR/', '/mnt/lustre/share/jywang/dataset/df2k_ost/GT/']
-        face_gt_path: '/mnt/lustre/share/jywang/dataset/FFHQ/1024/'
+        gt_path: '/kaggle/input/div2k-train-hr/div2k_modified'
+        #gt_path: ['/mnt/lustre/share/jywang/dataset/DIV8K/train_HR/', '/mnt/lustre/share/jywang/dataset/df2k_ost/GT/']
+        #face_gt_path: '/mnt/lustre/share/jywang/dataset/FFHQ/1024/'
+        face_gt_path: '/kaggle/input/div2k-train-hr/div2k_modified'
         num_face: 10000
         crop_size: 512
         io_backend:
@@ -166,7 +168,8 @@ data:
     validation:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
-        gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
+        gt_path: '/kaggle/input/div2k-train-hr/div2k_modified'
+        #gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
         crop_size: 512
         io_backend:
           type: disk
@@ -202,7 +205,8 @@ test_data:
     test:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
-        gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
+        gt_path: '/kaggle/input/div2k-train-hr/div2k_modified'
+        #gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
         crop_size: 512
         io_backend:
           type: disk
