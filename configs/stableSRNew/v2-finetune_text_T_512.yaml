@@ -129,7 +129,7 @@ data:
   target: main.DataModuleFromConfig
   params:
     #batch_size: 6
-    batch_size: 2
+    batch_size: 1
     num_workers: 0
     #num_workers: 6
     wrap: false
