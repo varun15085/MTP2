@@ -250,5 +250,6 @@ lightning:
 
   trainer:
     benchmark: True
-    max_steps: 800000
+    #max_steps: 800000
+    max_steps: 80
     accumulate_grad_batches: 4
