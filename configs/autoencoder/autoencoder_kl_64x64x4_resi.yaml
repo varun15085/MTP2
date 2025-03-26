@@ -46,13 +46,15 @@ data:
     train:
       target: basicsr.data.single_image_dataset.SingleImageNPDataset
       params:
-        gt_path: ['/mnt/lustre/share/jywang/ddpm_data/CFW_trainingdata/']
+        gt_path: '/kaggle/input/div2k-train-hr/div2k_modified/'
+        #gt_path: ['/mnt/lustre/share/jywang/ddpm_data/CFW_trainingdata/']
         io_backend:
           type: disk
     validation:
       target: basicsr.data.single_image_dataset.SingleImageNPDataset
       params:
-        gt_path: ['/mnt/lustre/share/jywang/ddpm_data/CFW_trainingdata/']
+        gt_path: '/kaggle/input/div2k-train-hr/div2k_modified/'
+        #gt_path: ['/mnt/lustre/share/jywang/ddpm_data/CFW_trainingdata/']
         io_backend:
           type: disk
 
