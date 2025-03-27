@@ -156,7 +156,8 @@ def main():
         type=str,
         nargs="?",
         help="path to the input image",
-        default="/mnt/lustre/jywang/dataset/ImageSR/RealSRSet/"
+        #default="/mnt/lustre/jywang/dataset/ImageSR/RealSRSet/"
+        default="/kaggle/input/div2k-train-hr/div2k_modified/"
     )
 
     parser.add_argument(
