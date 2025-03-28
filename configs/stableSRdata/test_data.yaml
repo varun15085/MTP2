@@ -121,7 +121,6 @@ degradation:
   poisson_scale_range2: [0.05, 1.0]
   gray_noise_prob2: 0.4
   jpeg_range2: [60, 100]
-  no_degradation_prob: 0.01 # added by varun
 
   gt_size: 512
 
