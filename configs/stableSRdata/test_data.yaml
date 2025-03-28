@@ -126,8 +126,10 @@ degradation:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 4
-    num_workers: 6
+    batch_size: 1
+    #batch_size: 4
+    num_workers: 0
+    #num_workers: 6
     wrap: false
     train:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
@@ -198,8 +200,10 @@ data:
 test_data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 6
-    num_workers: 6
+    batch_size: 1
+    #batch_size: 6
+    num_workers: 0
+    #num_workers: 6
     wrap: false
     test:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
