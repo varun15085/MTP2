@@ -255,4 +255,4 @@ lightning:
 
   trainer:
     benchmark: True
-    max_steps: 8
+    max_steps: 80
