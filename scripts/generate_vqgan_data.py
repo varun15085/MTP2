@@ -426,7 +426,8 @@ def main():
                                     base_i += 1
                                     total_num += 1
                     # Number of images to generate each time
-                    if total_num > 5000:
+                    if total_num > 50:
+                    #if total_num > 5000:
                         break
 
                 toc = time.time()
