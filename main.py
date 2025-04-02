@@ -733,6 +733,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGUSR2, divein)
 
     # run
+    print(f"#### Running ####")
     if opt.train:
         try:
             trainer.fit(model, data)
@@ -741,3 +742,4 @@ if __name__ == "__main__":
             raise
     if not opt.no_test and not trainer.interrupted:
         trainer.test(model, data)
+    print(f"#### Running ####")
