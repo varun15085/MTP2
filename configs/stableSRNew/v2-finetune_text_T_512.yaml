@@ -53,7 +53,7 @@ model:
       params:
         # for training only
         ckpt_path: /kaggle/input/ckpt-file/v2-1_512-ema-pruned.ckpt
-        embed_dim: 4 
+        #embed_dim: 4 
         monitor: val/rec_loss
         ddconfig:
           double_z: true
