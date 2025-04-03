@@ -742,4 +742,4 @@ if __name__ == "__main__":
             raise
     if not opt.no_test and not trainer.interrupted:
         trainer.test(model, data)
-    print(f"#### Running ####")
+    print(f"#### Complete ####")
