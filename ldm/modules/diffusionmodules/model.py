@@ -841,6 +841,8 @@ class CrossAttention(nn.Module):
         q = self.to_q(query)  # (B, H*W, hidden_dim)
         k, v = self.to_kv(key_value).chunk(2, dim=-1)  # Split into K and V
 
+        print("q shape:", q.shape)
+        print("k shape:", k.shape)
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # Compute similarity
         attn_weights = attn_weights.softmax(dim=-1)  # Normalize attention scores
         attn_output = attn_weights @ v  # Apply attention to values
