@@ -853,12 +853,17 @@ class ResBlock(nn.Module):
 # import torch
 # import torch.nn as nn
 
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class CrossAttention(nn.Module):
-    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=16):
+    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=8):
         super().__init__()
         self.num_heads = num_heads
         self.patch_size = patch_size
-        hidden_dim = dim_head * num_heads  # total hidden size for multi-head
+        hidden_dim = dim_head * num_heads
 
         self.to_q = nn.Linear(dim * patch_size * patch_size, hidden_dim, bias=False)
         self.to_kv = nn.Linear(2 * dim * patch_size * patch_size, hidden_dim * 2, bias=False)
@@ -870,21 +875,33 @@ class CrossAttention(nn.Module):
         # x: [B, C, H, W]
         B, C, H, W = x.shape
         p = self.patch_size
-        assert H % p == 0 and W % p == 0, "Height and Width must be divisible by patch size"
-        
-        x = x.unfold(2, p, p).unfold(3, p, p)  # [B, C, H//p, W//p, p, p]
-        x = x.contiguous().view(B, C, -1, p, p)  # flatten spatial dimensions
-        x = x.permute(0, 2, 1, 3, 4).reshape(B, -1, C * p * p)  # [B, num_patches, patch_dim]
-        return x, H, W
 
-    def unpatchify(self, x, H, W):
+        # Pad if not divisible
+        pad_h = (p - H % p) % p
+        pad_w = (p - W % p) % p
+        x = F.pad(x, (0, pad_w, 0, pad_h))  # pad (left, right, top, bottom)
+        H_new, W_new = x.shape[2], x.shape[3]
+
+        x = x.unfold(2, p, p).unfold(3, p, p)  # [B, C, H//p, W//p, p, p]
+        x = x.contiguous().view(B, C, -1, p, p)
+        x = x.permute(0, 2, 1, 3, 4).reshape(B, -1, C * p * p)  # [B, num_patches, patch_dim]
+        return x, H_new, W_new, pad_h, pad_w
+
+    def unpatchify(self, x, H, W, pad_h, pad_w):
         # x: [B, num_patches, patch_dim]
         B, N, D = x.shape
         p = self.patch_size
         C = D // (p * p)
-        x = x.view(B, H // p, W // p, C, p, p)  # reshape to grid
+
+        x = x.view(B, H // p, W // p, C, p, p)
         x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
         x = x.view(B, C, H, W)
+
+        # Remove padding
+        if pad_h > 0:
+            x = x[:, :, :-pad_h, :]
+        if pad_w > 0:
+            x = x[:, :, :, :-pad_w]
         return x
 
     def forward(self, query, key, value):
@@ -892,9 +909,9 @@ class CrossAttention(nn.Module):
         B, C, H, W = query.shape
 
         # Patchify
-        query_p, Hq, Wq = self.patchify(query)           # [B, N_q, patch_dim]
-        key_p, _, _ = self.patchify(key)                 # [B, N_k, patch_dim]
-        value_p, _, _ = self.patchify(value)             # [B, N_v, patch_dim]
+        query_p, Hq, Wq, pad_h, pad_w = self.patchify(query)
+        key_p, _, _, _, _ = self.patchify(key)
+        value_p, _, _, _, _ = self.patchify(value)
 
         # Concatenate key and value
         kv_p = torch.cat([key_p, value_p], dim=-1)       # [B, N, 2*patch_dim]
@@ -903,9 +920,6 @@ class CrossAttention(nn.Module):
         q = self.to_q(query_p)                           # [B, N_q, hidden_dim]
         k, v = self.to_kv(kv_p).chunk(2, dim=-1)         # [B, N_k, hidden_dim] each
 
-        print("q shape:", q.shape)
-        print("k shape:", k.shape)
-
         # Attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale
         attn_weights = attn_weights.softmax(dim=-1)
@@ -913,8 +927,71 @@ class CrossAttention(nn.Module):
 
         # Project and unpatchify
         out = self.to_out(attn_output)                   # [B, N_q, patch_dim]
-        out = self.unpatchify(out, Hq, Wq)               # [B, C, H, W]
+        out = self.unpatchify(out, Hq, Wq, pad_h, pad_w) # [B, C, H, W]
         return out
+
+# class CrossAttention(nn.Module):
+#     def __init__(self, dim, num_heads=4, dim_head=32, patch_size=16):
+#         super().__init__()
+#         self.num_heads = num_heads
+#         self.patch_size = patch_size
+#         hidden_dim = dim_head * num_heads  # total hidden size for multi-head
+
+#         self.to_q = nn.Linear(dim * patch_size * patch_size, hidden_dim, bias=False)
+#         self.to_kv = nn.Linear(2 * dim * patch_size * patch_size, hidden_dim * 2, bias=False)
+#         self.to_out = nn.Linear(hidden_dim, dim * patch_size * patch_size)
+
+#         self.scale = dim_head ** -0.5
+
+#     def patchify(self, x):
+#         # x: [B, C, H, W]
+#         B, C, H, W = x.shape
+#         p = self.patch_size
+#         assert H % p == 0 and W % p == 0, "Height and Width must be divisible by patch size"
+        
+#         x = x.unfold(2, p, p).unfold(3, p, p)  # [B, C, H//p, W//p, p, p]
+#         x = x.contiguous().view(B, C, -1, p, p)  # flatten spatial dimensions
+#         x = x.permute(0, 2, 1, 3, 4).reshape(B, -1, C * p * p)  # [B, num_patches, patch_dim]
+#         return x, H, W
+
+#     def unpatchify(self, x, H, W):
+#         # x: [B, num_patches, patch_dim]
+#         B, N, D = x.shape
+#         p = self.patch_size
+#         C = D // (p * p)
+#         x = x.view(B, H // p, W // p, C, p, p)  # reshape to grid
+#         x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
+#         x = x.view(B, C, H, W)
+#         return x
+
+#     def forward(self, query, key, value):
+#         # query, key, value: [B, C, H, W]
+#         B, C, H, W = query.shape
+
+#         # Patchify
+#         query_p, Hq, Wq = self.patchify(query)           # [B, N_q, patch_dim]
+#         key_p, _, _ = self.patchify(key)                 # [B, N_k, patch_dim]
+#         value_p, _, _ = self.patchify(value)             # [B, N_v, patch_dim]
+
+#         # Concatenate key and value
+#         kv_p = torch.cat([key_p, value_p], dim=-1)       # [B, N, 2*patch_dim]
+
+#         # Project to Q, K, V
+#         q = self.to_q(query_p)                           # [B, N_q, hidden_dim]
+#         k, v = self.to_kv(kv_p).chunk(2, dim=-1)         # [B, N_k, hidden_dim] each
+
+#         print("q shape:", q.shape)
+#         print("k shape:", k.shape)
+
+#         # Attention
+#         attn_weights = (q @ k.transpose(-2, -1)) * self.scale
+#         attn_weights = attn_weights.softmax(dim=-1)
+#         attn_output = attn_weights @ v                   # [B, N_q, hidden_dim]
+
+#         # Project and unpatchify
+#         out = self.to_out(attn_output)                   # [B, N_q, patch_dim]
+#         out = self.unpatchify(out, Hq, Wq)               # [B, C, H, W]
+#         return out
 
 
 
