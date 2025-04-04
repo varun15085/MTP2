@@ -818,6 +818,38 @@ class ResBlock(nn.Module):
             x_in = self.conv_out(x_in)
 
         return x + x_in
+###### Attention Code #######
+class CrossAttention(nn.Module):
+    def __init__(self, dim, num_heads=4, dim_head=32):
+        super().__init__()
+        self.num_heads = num_heads
+        hidden_dim = dim_head * num_heads  # Total dimension after multi-head splitting
+        
+        self.to_q = nn.Linear(dim, hidden_dim, bias=False)  # Query from decoder features
+        self.to_kv = nn.Linear(dim, hidden_dim * 2, bias=False)  # Key and Value from encoder features
+        self.to_out = nn.Linear(hidden_dim, dim)  # Project back to original dimension
+        
+        self.scale = (dim_head) ** -0.5  # Scaling factor for stability
+
+    def forward(self, query, key, value):
+        B, C, H, W = query.shape
+        query = query.flatten(2).permute(0, 2, 1)  # (B, C, H*W) -> (B, H*W, C)
+        key_value = torch.cat([key, value], dim=1)  # Merge encoder features
+        key_value = key_value.flatten(2).permute(0, 2, 1)  # Reshape KV
+
+        q = self.to_q(query)  # (B, H*W, hidden_dim)
+        k, v = self.to_kv(key_value).chunk(2, dim=-1)  # Split into K and V
+
+        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # Compute similarity
+        attn_weights = attn_weights.softmax(dim=-1)  # Normalize attention scores
+        attn_output = attn_weights @ v  # Apply attention to values
+
+        attn_output = self.to_out(attn_output).permute(0, 2, 1).reshape(B, C, H, W)
+        return attn_output
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 class Fuse_sft_block_RRDB(nn.Module):
     def __init__(self, in_ch, out_ch, num_block=1, num_grow_ch=32):
@@ -826,13 +858,37 @@ class Fuse_sft_block_RRDB(nn.Module):
         self.encode_enc_2 = make_layer(RRDB, num_block, num_feat=in_ch, num_grow_ch=num_grow_ch)
         self.encode_enc_3 = ResBlock(in_ch, out_ch)
 
+        
+        self.cross_attention = CrossAttention(out_ch)
+
     def forward(self, enc_feat, dec_feat, w=1):
         enc_feat = self.encode_enc_1(torch.cat([enc_feat, dec_feat], dim=1))
         enc_feat = self.encode_enc_2(enc_feat)
         enc_feat = self.encode_enc_3(enc_feat)
+
+        
+        enc_feat = self.cross_attention(query=dec_feat, key=enc_feat, value=enc_feat)
+
         residual = w * enc_feat
         out = dec_feat + residual
         return out
+
+###############
+
+# class Fuse_sft_block_RRDB(nn.Module):
+#     def __init__(self, in_ch, out_ch, num_block=1, num_grow_ch=32):
+#         super().__init__()
+#         self.encode_enc_1 = ResBlock(2*in_ch, in_ch)
+#         self.encode_enc_2 = make_layer(RRDB, num_block, num_feat=in_ch, num_grow_ch=num_grow_ch)
+#         self.encode_enc_3 = ResBlock(in_ch, out_ch)
+
+#     def forward(self, enc_feat, dec_feat, w=1):
+#         enc_feat = self.encode_enc_1(torch.cat([enc_feat, dec_feat], dim=1))
+#         enc_feat = self.encode_enc_2(enc_feat)
+#         enc_feat = self.encode_enc_3(enc_feat)
+#         residual = w * enc_feat
+#         out = dec_feat + residual
+#         return out
 
 class SimpleDecoder(nn.Module):
     def __init__(self, in_channels, out_channels, *args, **kwargs):
