@@ -827,7 +827,7 @@ class CrossAttention(nn.Module):
         hidden_dim = dim_head * num_heads  # Total dimension after multi-head splitting
         
         self.to_q = nn.Linear(dim, hidden_dim, bias=False)  # Query from decoder features
-        self.to_kv = nn.Linear(dim, hidden_dim * 2, bias=False)  # Key and Value from encoder features
+        self.to_kv = nn.Linear(dim * 2, hidden_dim * 2, bias=False)  # Key and Value from encoder features
         self.to_out = nn.Linear(hidden_dim, dim)  # Project back to original dimension
         
         self.scale = (dim_head) ** -0.5  # Scaling factor for stability
