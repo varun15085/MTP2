@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from einops import rearrange
+import torch.nn.functional as F
 
 from ldm.util import instantiate_from_config
 from ldm.modules.attention import LinearAttention
@@ -847,9 +848,8 @@ class CrossAttention(nn.Module):
         attn_output = self.to_out(attn_output).permute(0, 2, 1).reshape(B, C, H, W)
         return attn_output
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
+
 
 class Fuse_sft_block_RRDB(nn.Module):
     def __init__(self, in_ch, out_ch, num_block=1, num_grow_ch=32):
