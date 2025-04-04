@@ -820,36 +820,101 @@ class ResBlock(nn.Module):
 
         return x + x_in
 ###### Attention Code #######
+# class CrossAttention(nn.Module):
+#     def __init__(self, dim, num_heads=4, dim_head=32):
+#         super().__init__()
+#         self.num_heads = num_heads
+#         hidden_dim = dim_head * num_heads  # Total dimension after multi-head splitting
+        
+#         self.to_q = nn.Linear(dim, hidden_dim, bias=False)  # Query from decoder features
+#         self.to_kv = nn.Linear(dim * 2, hidden_dim * 2, bias=False)  # Key and Value from encoder features
+#         self.to_out = nn.Linear(hidden_dim, dim)  # Project back to original dimension
+        
+#         self.scale = (dim_head) ** -0.5  # Scaling factor for stability
+
+#     def forward(self, query, key, value):
+#         B, C, H, W = query.shape
+#         query = query.flatten(2).permute(0, 2, 1)  # (B, C, H*W) -> (B, H*W, C)
+#         key_value = torch.cat([key, value], dim=1)  # Merge encoder features
+#         key_value = key_value.flatten(2).permute(0, 2, 1)  # Reshape KV
+
+#         q = self.to_q(query)  # (B, H*W, hidden_dim)
+#         k, v = self.to_kv(key_value).chunk(2, dim=-1)  # Split into K and V
+
+#         print("q shape:", q.shape)
+#         print("k shape:", k.shape)
+#         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # Compute similarity
+#         attn_weights = attn_weights.softmax(dim=-1)  # Normalize attention scores
+#         attn_output = attn_weights @ v  # Apply attention to values
+
+#         attn_output = self.to_out(attn_output).permute(0, 2, 1).reshape(B, C, H, W)
+#         return attn_output
+
+# import torch
+# import torch.nn as nn
+
 class CrossAttention(nn.Module):
-    def __init__(self, dim, num_heads=4, dim_head=32):
+    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=16):
         super().__init__()
         self.num_heads = num_heads
-        hidden_dim = dim_head * num_heads  # Total dimension after multi-head splitting
+        self.patch_size = patch_size
+        hidden_dim = dim_head * num_heads  # total hidden size for multi-head
+
+        self.to_q = nn.Linear(dim * patch_size * patch_size, hidden_dim, bias=False)
+        self.to_kv = nn.Linear(2 * dim * patch_size * patch_size, hidden_dim * 2, bias=False)
+        self.to_out = nn.Linear(hidden_dim, dim * patch_size * patch_size)
+
+        self.scale = dim_head ** -0.5
+
+    def patchify(self, x):
+        # x: [B, C, H, W]
+        B, C, H, W = x.shape
+        p = self.patch_size
+        assert H % p == 0 and W % p == 0, "Height and Width must be divisible by patch size"
         
-        self.to_q = nn.Linear(dim, hidden_dim, bias=False)  # Query from decoder features
-        self.to_kv = nn.Linear(dim * 2, hidden_dim * 2, bias=False)  # Key and Value from encoder features
-        self.to_out = nn.Linear(hidden_dim, dim)  # Project back to original dimension
-        
-        self.scale = (dim_head) ** -0.5  # Scaling factor for stability
+        x = x.unfold(2, p, p).unfold(3, p, p)  # [B, C, H//p, W//p, p, p]
+        x = x.contiguous().view(B, C, -1, p, p)  # flatten spatial dimensions
+        x = x.permute(0, 2, 1, 3, 4).reshape(B, -1, C * p * p)  # [B, num_patches, patch_dim]
+        return x, H, W
+
+    def unpatchify(self, x, H, W):
+        # x: [B, num_patches, patch_dim]
+        B, N, D = x.shape
+        p = self.patch_size
+        C = D // (p * p)
+        x = x.view(B, H // p, W // p, C, p, p)  # reshape to grid
+        x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
+        x = x.view(B, C, H, W)
+        return x
 
     def forward(self, query, key, value):
+        # query, key, value: [B, C, H, W]
         B, C, H, W = query.shape
-        query = query.flatten(2).permute(0, 2, 1)  # (B, C, H*W) -> (B, H*W, C)
-        key_value = torch.cat([key, value], dim=1)  # Merge encoder features
-        key_value = key_value.flatten(2).permute(0, 2, 1)  # Reshape KV
 
-        q = self.to_q(query)  # (B, H*W, hidden_dim)
-        k, v = self.to_kv(key_value).chunk(2, dim=-1)  # Split into K and V
+        # Patchify
+        query_p, Hq, Wq = self.patchify(query)           # [B, N_q, patch_dim]
+        key_p, _, _ = self.patchify(key)                 # [B, N_k, patch_dim]
+        value_p, _, _ = self.patchify(value)             # [B, N_v, patch_dim]
+
+        # Concatenate key and value
+        kv_p = torch.cat([key_p, value_p], dim=-1)       # [B, N, 2*patch_dim]
+
+        # Project to Q, K, V
+        q = self.to_q(query_p)                           # [B, N_q, hidden_dim]
+        k, v = self.to_kv(kv_p).chunk(2, dim=-1)         # [B, N_k, hidden_dim] each
 
         print("q shape:", q.shape)
         print("k shape:", k.shape)
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # Compute similarity
-        attn_weights = attn_weights.softmax(dim=-1)  # Normalize attention scores
-        attn_output = attn_weights @ v  # Apply attention to values
 
-        attn_output = self.to_out(attn_output).permute(0, 2, 1).reshape(B, C, H, W)
-        return attn_output
+        # Attention
+        attn_weights = (q @ k.transpose(-2, -1)) * self.scale
+        attn_weights = attn_weights.softmax(dim=-1)
+        attn_output = attn_weights @ v                   # [B, N_q, hidden_dim]
 
+        # Project and unpatchify
+        out = self.to_out(attn_output)                   # [B, N_q, patch_dim]
+        out = self.unpatchify(out, Hq, Wq)               # [B, C, H, W]
+        return out
 
 
 
