@@ -859,7 +859,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CrossAttention(nn.Module):
-    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=2):
+    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=16):
         super().__init__()
         self.num_heads = num_heads
         self.patch_size = patch_size
@@ -919,7 +919,8 @@ class CrossAttention(nn.Module):
         # Project to Q, K, V
         q = self.to_q(query_p)                           # [B, N_q, hidden_dim]
         k, v = self.to_kv(kv_p).chunk(2, dim=-1)         # [B, N_k, hidden_dim] each
-
+        print("q shape:", q.shape)
+        print("k shape:", k.shape)
         # Attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale
         attn_weights = attn_weights.softmax(dim=-1)
