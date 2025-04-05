@@ -859,7 +859,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CrossAttention(nn.Module):
-    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=8):
+    def __init__(self, dim, num_heads=4, dim_head=32, patch_size=4):
         super().__init__()
         self.num_heads = num_heads
         self.patch_size = patch_size
